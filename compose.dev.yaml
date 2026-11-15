@@ -1,0 +1,30 @@
+# Local development / verification overlay:
+#   docker compose -f compose.yaml -f compose.dev.yaml up -d --build
+# - no public TLS proxy (app on http://127.0.0.1:8080)
+# - Postgres published on 127.0.0.1:54329 for running the PHPUnit suite against real PostgreSQL
+# - Mem0 sidecar on 127.0.0.1:8001 for the live contract test
+# Use `php artisan telegram:poll` (APP_ENV=local) instead of a webhook during development.
+services:
+  proxy:
+    profiles: ["tls"]
+
+  app:
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+    ports:
+      - "127.0.0.1:8080:8080"
+
+  postgres:
+    ports:
+      - "127.0.0.1:54329:5432"
+    networks: [backend, devhost]
+
+  mem0:
+    ports:
+      - "127.0.0.1:8001:8000"
+    networks: [backend, egress]
+
+networks:
+  # internal networks cannot publish ports; give Postgres a host-reachable network in dev only
+  devhost: {}

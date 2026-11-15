@@ -1,0 +1,192 @@
+# Production stack for a single VPS. Secrets come from .env (never committed; chmod 600).
+# Only the Caddy proxy publishes ports. PostgreSQL, Redis and Mem0 live on an internal network.
+name: companion
+
+x-app: &app
+  image: ${APP_IMAGE:-companion-app:latest}
+  build:
+    context: .
+    dockerfile: docker/php/Dockerfile
+  env_file: ${COMPANION_ENV_FILE:-.env}
+  environment:
+    APP_ENV: production
+    APP_DEBUG: "false"
+    DB_CONNECTION: pgsql
+    DB_HOST: postgres
+    DB_PORT: "5432"
+    REDIS_CLIENT: phpredis
+    REDIS_HOST: redis
+    QUEUE_CONNECTION: redis
+    CACHE_STORE: redis
+    SESSION_DRIVER: array
+    LOG_CHANNEL: stderr
+    LOG_STDERR_FORMATTER: Monolog\Formatter\JsonFormatter
+    MEM0_BASE_URL: http://mem0:8000
+  volumes:
+    - app_storage:/app/storage
+  restart: unless-stopped
+  read_only: true
+  tmpfs:
+    - /tmp
+    - /data
+    - /config
+    - /app/bootstrap/cache:uid=10001,gid=10001
+  security_opt:
+    - no-new-privileges:true
+  cap_drop: [ALL]
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+    migrate:
+      condition: service_completed_successfully
+
+services:
+  proxy:
+    image: caddy:2.11.9-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN in .env}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks: [edge]
+    depends_on:
+      app:
+        condition: service_healthy
+    security_opt:
+      - no-new-privileges:true
+
+  app:
+    <<: *app
+    command: ["app"]
+    networks: [edge, backend, egress]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/up"]
+      interval: 15s
+      timeout: 5s
+      start_period: 40s
+      retries: 5
+
+  worker:
+    <<: *app
+    command: ["worker"]
+    networks: [backend, egress]
+    stop_grace_period: 180s
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "queue:work"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  scheduler:
+    <<: *app
+    command: ["scheduler"]
+    networks: [backend, egress]
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "schedule:work"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  migrate:
+    <<: *app
+    command: ["migrate"]
+    restart: "no"
+    networks: [backend]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-companion}
+      POSTGRES_USER: ${DB_USERNAME:-companion}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?set DB_PASSWORD in .env}
+      MEM0_PG_PASSWORD: ${MEM0_PG_PASSWORD:?set MEM0_PG_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    networks: [backend]
+    shm_size: 256mb
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+
+  redis:
+    image: redis:7.4.12-alpine
+    restart: unless-stopped
+    # Passed via the official entrypoint so Redis drops root and runs as the redis user.
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+    volumes:
+      - redisdata:/data
+    networks: [backend]
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    security_opt:
+      - no-new-privileges:true
+
+  mem0:
+    build:
+      context: docker/mem0
+    image: ${MEM0_IMAGE:-companion-mem0:latest}
+    restart: unless-stopped
+    environment:
+      MEM0_API_KEY: ${MEM0_API_KEY:?set MEM0_API_KEY in .env}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      MEM0_LLM_MODEL: ${OPENAI_UTILITY_MODEL:-${OPENAI_CHAT_MODEL:-}}
+      MEM0_EMBEDDING_MODEL: ${MEM0_EMBEDDING_MODEL:-text-embedding-3-small}
+      MEM0_EMBEDDING_DIMS: ${MEM0_EMBEDDING_DIMS:-1536}
+      MEM0_TEST_EMBEDDER: ${MEM0_TEST_EMBEDDER:-0}
+      MEM0_PG_HOST: postgres
+      MEM0_PG_DB: mem0
+      MEM0_PG_USER: mem0
+      MEM0_PG_PASSWORD: ${MEM0_PG_PASSWORD}
+      MEM0_HISTORY_DB_PATH: /data/history.db
+      MEM0_TELEMETRY: "False"
+    volumes:
+      - mem0data:/data
+    networks: [backend, egress]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+
+networks:
+  edge: {}
+  egress: {}
+  backend:
+    internal: true
+
+volumes:
+  pgdata: {}
+  redisdata: {}
+  mem0data: {}
+  app_storage: {}
+  caddy_data: {}
+  caddy_config: {}

@@ -1,0 +1,21 @@
+# Internal HTTP server inside the app container. TLS terminates at the separate Caddy proxy.
+{
+	frankenphp
+	admin off
+	auto_https off
+	servers {
+		trusted_proxies static private_ranges
+	}
+	log {
+		output stderr
+		format json
+		level WARN
+	}
+}
+
+:8080 {
+	root * /app/public
+	encode zstd gzip
+	header -Server
+	php_server
+}

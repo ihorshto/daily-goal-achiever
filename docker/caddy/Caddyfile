@@ -1,0 +1,35 @@
+# Public HTTPS reverse proxy. Automatic TLS via Let's Encrypt (ACME HTTP-01/TLS-ALPN-01):
+# point APP_DOMAIN's DNS A/AAAA record at the VPS and open ports 80/443.
+{
+	email {$ACME_EMAIL}
+	admin off
+}
+
+{$APP_DOMAIN} {
+	encode zstd gzip
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+	}
+
+	# Only the Telegram webhook and liveness probe are public. Everything else is 404.
+	@public path /api/telegram/webhook /up
+	handle @public {
+		request_body {
+			max_size 1MB
+		}
+		reverse_proxy app:8080 {
+			header_up X-Forwarded-Proto {scheme}
+		}
+	}
+	handle {
+		respond 404
+	}
+
+	log {
+		output stdout
+		format json
+	}
+}

@@ -1,0 +1,6 @@
+# Pinned. mem0ai is the official Mem0 OSS SDK (Apache-2.0). psycopg3 is required by its pgvector store.
+mem0ai==2.2.1
+psycopg[binary]==3.3.9
+psycopg-pool==3.3.3
+fastapi==0.162.7
+uvicorn==0.54.0
