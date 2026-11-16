@@ -22,6 +22,7 @@ class AppServiceProvider extends ServiceProvider
     public const TOOLS = [
         Tools\CreateGoalTool::class,
         Tools\CreateTaskTool::class,
+        Tools\CreateCalendarEventTool::class,
         Tools\UpdateTaskTool::class,
         Tools\UpdateTaskProgressTool::class,
         Tools\CompleteTaskTool::class,

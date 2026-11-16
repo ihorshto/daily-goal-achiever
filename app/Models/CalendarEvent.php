@@ -1,0 +1,35 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Models;
+
+use App\Models\Concerns\StoresUtc;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class CalendarEvent extends Model
+{
+    use StoresUtc;
+
+    protected $guarded = ['id'];
+
+    protected function casts(): array
+    {
+        return [
+            'all_day' => 'boolean',
+            'starts_at' => 'immutable_datetime',
+            'ends_at' => 'immutable_datetime',
+            'start_date' => 'immutable_date',
+            'end_date' => 'immutable_date',
+            'alert_minutes_before' => 'integer',
+            'sequence' => 'integer',
+            'sent_at' => 'immutable_datetime',
+        ];
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+}

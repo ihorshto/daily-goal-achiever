@@ -41,14 +41,7 @@ class OutboundMessenger
                 $result = $this->telegram->sendMessage((int) $user->telegram_chat_id, TelegramFormatter::toPlain($part), $markup, null);
             }
             if (! $result->ok) {
-                $retryable = ! $result->isPermanent() || $result->isRateLimited();
-                $log->update([
-                    'status' => NotificationStatus::Failed,
-                    'error_code' => ($retryable ? 'retry:' : 'perm:').$result->errorCode,
-                ]);
-                Log::warning('telegram.delivery_failed', ['kind' => $kind, 'error_code' => $result->errorCode, 'part' => $i]);
-
-                return new DeliveryOutcome($result->isRateLimited() ? 'rate_limited' : ($retryable ? 'retryable' : 'failed'), null, $result->retryAfter, (string) $result->errorCode);
+                return $this->failed($log, $result, $kind, $i);
             }
             $lastMessageId = $result->messageId();
         }
@@ -57,6 +50,40 @@ class OutboundMessenger
         Log::info('telegram.delivered', ['kind' => $kind, 'parts' => count($parts)]);
 
         return new DeliveryOutcome('sent', $lastMessageId);
+    }
+
+    /** Same exactly-once guarantees as deliver(), for a single uploaded document. */
+    public function deliverDocument(User $user, string $filename, string $contents, string $mimeType, ?string $caption, string $kind, string $idempotencyKey): DeliveryOutcome
+    {
+        if ($user->telegram_chat_id === null) {
+            return new DeliveryOutcome('failed', null, null, 'no_chat');
+        }
+        $log = $this->claim($user, $kind, $idempotencyKey, null);
+        if ($log === null) {
+            return new DeliveryOutcome('duplicate', null);
+        }
+
+        $result = $this->telegram->sendDocument((int) $user->telegram_chat_id, $filename, $contents, $mimeType, $caption);
+        if (! $result->ok) {
+            return $this->failed($log, $result, $kind, 0);
+        }
+
+        $log->update(['status' => NotificationStatus::Sent, 'telegram_message_id' => $result->messageId(), 'sent_at' => now(), 'error_code' => null]);
+        Log::info('telegram.delivered', ['kind' => $kind, 'parts' => 1]);
+
+        return new DeliveryOutcome('sent', $result->messageId());
+    }
+
+    private function failed(NotificationLog $log, TelegramResult $result, string $kind, int $part): DeliveryOutcome
+    {
+        $retryable = ! $result->isPermanent() || $result->isRateLimited();
+        $log->update([
+            'status' => NotificationStatus::Failed,
+            'error_code' => ($retryable ? 'retry:' : 'perm:').$result->errorCode,
+        ]);
+        Log::warning('telegram.delivery_failed', ['kind' => $kind, 'error_code' => $result->errorCode, 'part' => $part]);
+
+        return new DeliveryOutcome($result->isRateLimited() ? 'rate_limited' : ($retryable ? 'retryable' : 'failed'), null, $result->retryAfter, (string) $result->errorCode);
     }
 
     private function claim(User $user, string $kind, string $key, ?int $checkpointId): ?NotificationLog

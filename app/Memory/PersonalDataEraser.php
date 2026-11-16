@@ -51,6 +51,7 @@ final class PersonalDataEraser
                 $counts['checkpoints'] = DB::table('checkpoints')->where('user_id', $user->id)->delete();
                 $counts['pending_actions'] = DB::table('pending_action_confirmations')->where('user_id', $user->id)->where('status', '!=', 'applied')->delete();
                 $counts['daily_summaries'] = DB::table('daily_summaries')->where('user_id', $user->id)->delete();
+                $counts['calendar_events'] = DB::table('calendar_events')->where('user_id', $user->id)->delete();
                 $counts['tasks'] = DB::table('tasks')->where('user_id', $user->id)->delete();
                 $counts['goals'] = DB::table('goals')->where('user_id', $user->id)->delete();
                 $counts['projects'] = DB::table('projects')->where('user_id', $user->id)->delete();

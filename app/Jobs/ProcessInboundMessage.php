@@ -8,11 +8,13 @@ use App\Agent\AgentOrchestrator;
 use App\Agent\ConversationService;
 use App\Enums\MessageSource;
 use App\Enums\ProcessingState;
+use App\Models\CalendarEvent;
 use App\Models\Message;
 use App\Telegram\TelegramApiClient;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\Middleware\WithoutOverlapping;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -67,7 +69,16 @@ class ProcessInboundMessage implements ShouldQueue
         }
 
         $message->update(['processing_state' => ProcessingState::Processed]);
-        SendTelegramMessage::dispatch($existing->id);
+        $invites = CalendarEvent::query()->where('source_message_id', $message->id)->whereNull('sent_at')->orderBy('id')->pluck('id');
+        if ($invites->isEmpty()) {
+            SendTelegramMessage::dispatch($existing->id);
+        } else {
+            // The reply goes first, then each .ics file.
+            Bus::chain([
+                new SendTelegramMessage($existing->id),
+                ...$invites->map(fn (int $id) => new SendCalendarInvite($id))->all(),
+            ])->dispatch();
+        }
         ExtractMemories::dispatch($message->id);
     }
 

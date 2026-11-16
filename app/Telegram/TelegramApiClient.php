@@ -6,6 +6,7 @@ namespace App\Telegram;
 
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\PendingRequest;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
@@ -25,6 +26,17 @@ class TelegramApiClient
         }
 
         return $this->call('sendMessage', $payload);
+    }
+
+    /** Upload a file as a document (e.g. an .ics invite). Caption is plain text, max 1024 chars. */
+    public function sendDocument(int $chatId, string $filename, string $contents, string $mimeType, ?string $caption = null): TelegramResult
+    {
+        $fields = ['chat_id' => (string) $chatId];
+        if ($caption !== null && $caption !== '') {
+            $fields['caption'] = mb_substr($caption, 0, 1024);
+        }
+
+        return $this->upload('sendDocument', $fields, 'document', $filename, $contents, $mimeType);
     }
 
     public function answerCallbackQuery(string $callbackQueryId, ?string $text = null): TelegramResult
@@ -128,6 +140,33 @@ class TelegramApiClient
 
             return new TelegramResult(false, null, 0, 'connection_failed', null);
         }
+
+        return $this->toResult($method, $response);
+    }
+
+    /** Multipart request carrying one file. @param array<string, string> $fields */
+    protected function upload(string $method, array $fields, string $field, string $filename, string $contents, string $mimeType): TelegramResult
+    {
+        if ((string) config('companion.telegram.bot_token') === '') {
+            Log::error('telegram.not_configured', ['method' => $method]);
+
+            return new TelegramResult(false, null, 401, 'TELEGRAM_BOT_TOKEN is not configured');
+        }
+        try {
+            $response = $this->baseRequest(null)
+                ->attach($field, $contents, $filename, ['Content-Type' => $mimeType])
+                ->post('/'.$method, $fields);
+        } catch (ConnectionException) {
+            Log::warning('telegram.connection_failed', ['method' => $method]);
+
+            return new TelegramResult(false, null, 0, 'connection_failed', null);
+        }
+
+        return $this->toResult($method, $response);
+    }
+
+    private function toResult(string $method, Response $response): TelegramResult
+    {
         $json = $response->json() ?? [];
         $ok = (bool) ($json['ok'] ?? false);
         $result = new TelegramResult(
@@ -146,9 +185,13 @@ class TelegramApiClient
 
     private function http(?int $timeout): PendingRequest
     {
+        return $this->baseRequest($timeout)->asJson();
+    }
+
+    private function baseRequest(?int $timeout): PendingRequest
+    {
         return Http::baseUrl(rtrim((string) config('companion.telegram.api_base'), '/').'/bot'.$this->token())
             ->acceptJson()
-            ->asJson()
             ->timeout($timeout ?? (int) config('companion.telegram.timeout_seconds'))
             ->connectTimeout(5);
     }

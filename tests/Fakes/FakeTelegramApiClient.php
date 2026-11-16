@@ -41,6 +41,22 @@ class FakeTelegramApiClient extends TelegramApiClient
         };
     }
 
+    protected function upload(string $method, array $fields, string $field, string $filename, string $contents, string $mimeType): TelegramResult
+    {
+        $this->calls[] = ['method' => $method, 'payload' => $fields + [$field => ['filename' => $filename, 'contents' => $contents, 'mime' => $mimeType]]];
+        if (! empty($this->failures[$method])) {
+            return array_shift($this->failures[$method]);
+        }
+
+        return new TelegramResult(true, ['message_id' => $this->nextMessageId++], 0, null);
+    }
+
+    /** @return list<array> */
+    public function documents(): array
+    {
+        return array_values(array_map(fn ($c) => $c['payload'], array_filter($this->calls, fn ($c) => $c['method'] === 'sendDocument')));
+    }
+
     public function downloadFile(string $filePath, string $destination, int $maxBytes): int
     {
         $this->calls[] = ['method' => 'downloadFile', 'payload' => ['file_path' => $filePath]];

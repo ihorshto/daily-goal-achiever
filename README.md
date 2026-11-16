@@ -6,6 +6,7 @@ A proactive companion that lives in a private Telegram chat. You talk about goal
 - tracks explicit progress, and never marks anything done without your confirmation (your words or the ✅ button);
 - remembers yesterday, today and tomorrow precisely (PostgreSQL event history), and recalls things from months ago (Mem0 semantic memory);
 - checks in on its own: morning planning at 09:00, evening reflection at 20:00, plus deadline, blocker and promised follow-ups. It respects quiet hours (22:00–08:00, Europe/Paris, DST-safe), daily caps, minimum gaps, your silence and pauses;
+- adds events to your calendar on request ("add a meeting with Oleh tomorrow at 15:00 to my calendar"): it sends an `.ics` file you open to add the event to Apple, Google or Outlook Calendar. It needs no calendar login, so every user gets events in their own calendar;
 - asks for button confirmation before moving committed deadlines, reprioritizing, canceling, or erasing data.
 
 ## Quick start (development)
