@@ -33,6 +33,10 @@ case "$role" in
     wait_for_db
     exec php artisan schedule:work
     ;;
+  poller)
+    wait_for_db
+    exec php artisan telegram:poll
+    ;;
   migrate)
     wait_for_db
     exec php artisan migrate --force --isolated

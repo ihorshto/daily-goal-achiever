@@ -12,6 +12,8 @@ return [
     'telegram' => [
         'bot_token' => env('TELEGRAM_BOT_TOKEN'),
         'webhook_secret' => env('TELEGRAM_WEBHOOK_SECRET'),
+        // "webhook" (public HTTPS, VPS) or "polling" (outbound-only long polling, e.g. a home server). Never both.
+        'mode' => env('TELEGRAM_MODE', 'webhook'),
         'api_base' => env('TELEGRAM_API_BASE', 'https://api.telegram.org'),
         // Comma-separated numeric Telegram user IDs allowed to use the bot.
         'allowed_user_ids' => array_values(array_filter(array_map(

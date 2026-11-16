@@ -119,13 +119,16 @@ final class OpenAIClient implements LlmClient
             return;
         }
         $status = $response->status();
-        // Never log request bodies (user content); the error type/code is enough to debug.
+        // Never log request bodies (user content). OpenAI's error message/param describe the rejected
+        // request parameter (e.g. an unsupported option for this model), which is needed to debug 400s.
         Log::warning('openai.error', [
             'purpose' => $purpose,
             'status' => $status,
             'latency_ms' => $latency,
             'error_type' => $response->json('error.type'),
             'error_code' => $response->json('error.code'),
+            'error_param' => $response->json('error.param'),
+            'error_message' => mb_substr((string) $response->json('error.message'), 0, 300),
         ]);
         throw new LlmException(
             'OpenAI request failed ('.$status.': '.($response->json('error.code') ?? $response->json('error.type') ?? 'error').')',

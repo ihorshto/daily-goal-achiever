@@ -1,6 +1,21 @@
-# Production stack for a single VPS. Secrets come from .env (never committed; chmod 600).
+# Production stack for a single VPS (add compose.home.yaml for a home server with long polling). Secrets come from .env (never committed; chmod 600).
 # Only the Caddy proxy publishes ports. PostgreSQL, Redis and Mem0 live on an internal network.
 name: companion
+
+x-app-env: &app-env
+  APP_ENV: production
+  APP_DEBUG: "false"
+  DB_CONNECTION: pgsql
+  DB_HOST: postgres
+  DB_PORT: "5432"
+  REDIS_CLIENT: phpredis
+  REDIS_HOST: redis
+  QUEUE_CONNECTION: redis
+  CACHE_STORE: redis
+  SESSION_DRIVER: array
+  LOG_CHANNEL: stderr
+  LOG_STDERR_FORMATTER: Monolog\Formatter\JsonFormatter
+  MEM0_BASE_URL: http://mem0:8000
 
 x-app: &app
   image: ${APP_IMAGE:-companion-app:latest}
@@ -9,19 +24,7 @@ x-app: &app
     dockerfile: docker/php/Dockerfile
   env_file: ${COMPANION_ENV_FILE:-.env}
   environment:
-    APP_ENV: production
-    APP_DEBUG: "false"
-    DB_CONNECTION: pgsql
-    DB_HOST: postgres
-    DB_PORT: "5432"
-    REDIS_CLIENT: phpredis
-    REDIS_HOST: redis
-    QUEUE_CONNECTION: redis
-    CACHE_STORE: redis
-    SESSION_DRIVER: array
-    LOG_CHANNEL: stderr
-    LOG_STDERR_FORMATTER: Monolog\Formatter\JsonFormatter
-    MEM0_BASE_URL: http://mem0:8000
+    <<: *app-env
   volumes:
     - app_storage:/app/storage
   restart: unless-stopped
@@ -51,8 +54,9 @@ services:
       - "443:443"
       - "443:443/udp"
     environment:
-      APP_DOMAIN: ${APP_DOMAIN:?set APP_DOMAIN in .env}
-      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
+      # Required for the webhook/VPS setup (Caddy refuses to start without a site address); unused at home.
+      APP_DOMAIN: ${APP_DOMAIN:-}
+      ACME_EMAIL: ${ACME_EMAIL:-}
     volumes:
       - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -92,6 +96,23 @@ services:
     networks: [backend, egress]
     healthcheck:
       test: ["CMD", "pgrep", "-f", "schedule:work"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Long-polling receiver for home servers without public HTTPS (enable with --profile polling;
+  # see compose.home.yaml). Outbound-only. Never run it while a webhook is set: it deletes the webhook.
+  poller:
+    <<: *app
+    command: ["poller"]
+    profiles: ["polling"]
+    networks: [backend, egress]
+    environment:
+      <<: *app-env
+      TELEGRAM_MODE: polling
+    stop_grace_period: 40s   # one getUpdates long-poll (25s) to finish cleanly
+    healthcheck:
+      test: ["CMD", "pgrep", "-f", "telegram:poll"]
       interval: 30s
       timeout: 5s
       retries: 3

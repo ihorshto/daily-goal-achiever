@@ -16,6 +16,9 @@ php artisan test                 # 85 tests; no network, no paid APIs (also gree
 ```
 To chat with a dev bot: fill `TELEGRAM_*` and `OPENAI_*` in `.env`, start Postgres, Redis and Mem0 with `docker compose -f compose.yaml -f compose.dev.yaml up -d postgres redis mem0`, then run `php artisan migrate`, `php artisan queue:work`, `php artisan schedule:work` and `php artisan telegram:poll`.
 
+## At home (Raspberry Pi, no domain needed)
+See **[docs/raspberry-pi.md](docs/raspberry-pi.md)**: `docker compose -f compose.yaml -f compose.home.yaml --profile polling up -d` with `TELEGRAM_MODE=polling`. Outbound-only long polling: no TLS, no port forwarding.
+
 ## Production (single VPS)
 See **[docs/deployment.md](docs/deployment.md)**: `docker compose up -d`, then `php artisan telegram:webhook set`. Bot registration is in **[docs/telegram-setup.md](docs/telegram-setup.md)**.
 

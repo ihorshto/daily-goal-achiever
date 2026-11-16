@@ -1,0 +1,43 @@
+# Home server overlay (e.g. Raspberry Pi 4/5 with 4 GB+, 64-bit OS). Long polling instead of a webhook:
+# the bot only makes outbound connections, so no domain, TLS certificate, router port forwarding
+# or open ports are needed.
+#
+#   docker compose -f compose.yaml -f compose.home.yaml --profile polling up -d
+#
+# Set TELEGRAM_MODE=polling in .env as well, so `php artisan` commands you run by hand agree.
+# Memory limits keep one runaway service from starving the Pi (whole stack idles at ~0.5 GB);
+# log rotation keeps container logs from filling a small SD card. See docs/raspberry-pi.md.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  proxy:
+    profiles: ["tls"]   # not started: nothing is published to the internet
+
+  app:
+    mem_limit: 384m
+    logging: *logging
+  worker:
+    mem_limit: 384m
+    logging: *logging
+  scheduler:
+    mem_limit: 192m
+    logging: *logging
+  poller:
+    mem_limit: 192m
+    logging: *logging
+  migrate:
+    logging: *logging
+  postgres:
+    mem_limit: 512m
+    logging: *logging
+  redis:
+    mem_limit: 128m
+    logging: *logging
+  mem0:
+    mem_limit: 768m
+    logging: *logging
