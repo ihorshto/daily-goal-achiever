@@ -198,7 +198,8 @@ final class TaskService
     }
 
     /**
-     * Tasks relevant to a local date: planned for it, due on it, or open & overdue.
+     * Tasks that belong to a local date: planned for it or due on it. Overdue work from earlier
+     * days is NOT included (see overdueAsOf), so it is never presented as that day's plan.
      *
      * @return Collection<int, Task>
      */
@@ -211,12 +212,26 @@ final class TaskService
             ->where(function ($q) use ($localDate, $start, $end) {
                 $q->whereDate('planned_for_date', $localDate)
                     ->orWhereDate('due_date', $localDate)
-                    ->orWhereBetween('due_at', [$start, $end])
-                    ->orWhere(fn ($q) => $q->whereIn('status', TaskStatus::openValues())
-                        ->where(fn ($q) => $q->where('due_at', '<', $start)->orWhereDate('due_date', '<', $localDate)));
+                    ->orWhereBetween('due_at', [$start, $end]);
             })
             ->orderByRaw("case status when 'in_progress' then 0 when 'blocked' then 1 when 'todo' then 2 else 3 end")
             ->orderBy('due_at')
+            ->get();
+    }
+
+    /**
+     * Open tasks whose deadline passed before a local date, excluding ones re-planned for that date.
+     *
+     * @return Collection<int, Task>
+     */
+    public function overdueAsOf(User $user, string $localDate): Collection
+    {
+        $start = LocalTime::startOfLocalDay($localDate, $user->timezone);
+
+        return $user->tasks()->open()
+            ->where(fn ($q) => $q->where('due_at', '<', $start)->orWhereDate('due_date', '<', $localDate))
+            ->where(fn ($q) => $q->whereNull('planned_for_date')->orWhereDate('planned_for_date', '!=', $localDate))
+            ->orderBy('due_date')->orderBy('due_at')
             ->get();
     }
 

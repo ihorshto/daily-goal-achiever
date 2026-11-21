@@ -80,8 +80,9 @@ final class ContextBuilder
         $todayTasks = $this->tasks->forLocalDate($user, $today);
         $tomorrowTasks = $this->tasks->forLocalDate($user, $tomorrow)
             ->filter(fn ($t) => $t->isOpen() && ! $todayTasks->contains('id', $t->id));
+        $overdue = $this->tasks->overdueAsOf($user, $today);
         $otherOpen = $this->tasks->open($user, 25)
-            ->reject(fn ($t) => $todayTasks->contains('id', $t->id) || $tomorrowTasks->contains('id', $t->id));
+            ->reject(fn ($t) => $todayTasks->contains('id', $t->id) || $tomorrowTasks->contains('id', $t->id) || $overdue->contains('id', $t->id));
 
         $y = $this->summaries->compute($user, $yesterday);
         $yesterdayView = [
@@ -99,6 +100,7 @@ final class ContextBuilder
             'notification_settings' => $this->settings->describe($user),
             'active_goals' => $this->goals->active($user)->map(fn ($g) => ['id' => $g->id, 'title' => $g->title, 'priority' => $g->priority->value, 'target_date' => $g->target_date?->toDateString()])->all(),
             'today_tasks' => $todayTasks->map($describe)->values()->all(),
+            'overdue_from_earlier_days' => $overdue->map($describe)->values()->all(),
             'tomorrow_tasks' => $tomorrowTasks->map($describe)->values()->all(),
             'other_open_tasks' => $otherOpen->map($describe)->values()->all(),
             'yesterday' => $yesterdayView,
