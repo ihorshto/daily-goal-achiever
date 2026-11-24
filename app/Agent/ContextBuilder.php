@@ -15,6 +15,8 @@ use App\Memory\MemoryRetriever;
 use App\Memory\RetrievedMemory;
 use App\Models\Message;
 use App\Models\User;
+use App\Stickers\StickerCatalog;
+use App\Stickers\StickerLimiter;
 use App\Support\LocalTime;
 use Carbon\CarbonImmutable;
 
@@ -37,10 +39,12 @@ final class ContextBuilder
         private readonly MemoryRetriever $memories,
         private readonly ConversationService $conversations,
         private readonly TokenEstimator $tokens,
+        private readonly StickerCatalog $stickers,
+        private readonly StickerLimiter $stickerLimiter,
     ) {}
 
     /** @return list<array<string, mixed>> OpenAI chat messages */
-    public function build(User $user, Message $current, ?CarbonImmutable $now = null): array
+    public function build(User $user, Message $current, ?CarbonImmutable $now = null, bool $stickersAvailable = false): array
     {
         $now ??= CarbonImmutable::now();
         $tz = $user->timezone;
@@ -48,11 +52,15 @@ final class ContextBuilder
         $nowLocal = $now->setTimezone($tz)->format('l Y-m-d H:i');
         $settings = $user->settingsOrDefault();
 
-        $messages = [['role' => 'system', 'content' => $this->prompts->system($user->displayName(), $tz, $nowLocal, $settings->reply_language, $settings->tone)]];
+        $messages = [['role' => 'system', 'content' => $this->prompts->system($user->displayName(), $tz, $nowLocal, $settings->reply_language, $settings->tone, $settings->emoji_enabled, $stickersAvailable)]];
 
         // Task titles are user-originated text: fit first, then mark the whole block as data.
         $structured = PromptManager::untrusted($this->tokens->fit($this->structured($user, $now), (int) ($budget * 0.4)));
         $messages[] = ['role' => 'system', 'content' => "STRUCTURED RECORDS (authoritative, from the database):\n".$structured];
+
+        if ($stickersAvailable && ($catalog = $this->stickerBlock($user, $current, $now)) !== null) {
+            $messages[] = ['role' => 'system', 'content' => "STICKER CATALOG (the user's own stickers; pass one of these emojis to send_sticker):\n".$catalog];
+        }
 
         $memoryBlock = $this->memoryBlock($user, (string) $current->text, (int) ($budget * 0.2));
         if ($memoryBlock !== null) {
@@ -112,6 +120,19 @@ final class ContextBuilder
         ];
 
         return (string) json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT);
+    }
+
+    private function stickerBlock(User $user, Message $current, CarbonImmutable $now): ?string
+    {
+        $summary = $this->stickers->summary($user);
+        if ($summary === null) {
+            return null;
+        }
+        $reason = $this->stickerLimiter->denialReason($user, $current, $now);
+        $availability = 'available_now: '.($reason === null ? 'yes' : "no ({$reason})");
+
+        // Set titles are user-originated text: fit first, then mark the whole block as data.
+        return PromptManager::untrusted($this->tokens->fit($availability."\n".$summary, 150));
     }
 
     private function memoryBlock(User $user, string $query, int $budget): ?string

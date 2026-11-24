@@ -6,6 +6,7 @@ namespace App\Telegram;
 
 use App\Models\Checkpoint;
 use App\Models\PendingActionConfirmation;
+use App\Models\StickerSet;
 use App\Models\Task;
 
 /**
@@ -13,6 +14,7 @@ use App\Models\Task;
  *   t:{taskId}:{d|p|b|z}     task done / in progress / blocked / postpone
  *   c:{nonce}:{y|n}          pending-action confirmation (nonce is unguessable)
  *   s:{checkpointId}:{mins}  snooze a check-in
+ *   k:{stickerSetId}:{a|n}   add / dismiss an offered sticker set
  */
 final class Keyboards
 {
@@ -42,6 +44,15 @@ final class Keyboards
         return [
             ['text' => '⏰ In 1h', 'callback_data' => "s:{$checkpoint->id}:60"],
             ['text' => '🌙 Tomorrow', 'callback_data' => "s:{$checkpoint->id}:1440"],
+        ];
+    }
+
+    /** @return list<array{text: string, callback_data: string}> */
+    public static function stickerOfferRow(StickerSet $set): array
+    {
+        return [
+            ['text' => '➕ Add', 'callback_data' => "k:{$set->id}:a"],
+            ['text' => 'Not now', 'callback_data' => "k:{$set->id}:n"],
         ];
     }
 

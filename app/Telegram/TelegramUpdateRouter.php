@@ -8,9 +8,12 @@ use App\Agent\ConversationService;
 use App\Enums\MessageSource;
 use App\Enums\ProcessingState;
 use App\Jobs\HandleCallbackQuery;
+use App\Jobs\ImportStickerSet;
+use App\Jobs\OfferStickerSet;
 use App\Jobs\ProcessInboundMessage;
 use App\Jobs\TranscribeVoiceMessage;
 use App\Models\TelegramUpdate;
+use App\Stickers\StickerCatalog;
 use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\Context;
 use Illuminate\Support\Facades\DB;
@@ -28,6 +31,7 @@ final class TelegramUpdateRouter
         private readonly UserResolver $users,
         private readonly ConversationService $conversations,
         private readonly CommandHandler $commands,
+        private readonly StickerCatalog $stickers,
     ) {}
 
     /** @param array<string, mixed> $update  @return string outcome code */
@@ -96,9 +100,34 @@ final class TelegramUpdateRouter
 
                 return 'dispatched';
             }
+            if (preg_match('#^\s*(?:https?://)?t\.me/(?:addstickers|addemoji)/[A-Za-z0-9_]{1,64}/?\s*$#i', $msg['text'])) {
+                // A bare sticker-set link: import it in the background instead of running an agent turn.
+                [$message, $created] = $this->conversations->recordInbound($user, $dedup, MessageSource::TelegramText, $msg['text'], $common + ['processing_state' => ProcessingState::Processed]);
+                if ($created) {
+                    ImportStickerSet::dispatch($user->id, trim($msg['text']), $message->id);
+                }
+
+                return $created ? 'dispatched' : 'duplicate';
+            }
             [$message, $created] = $this->conversations->recordInbound($user, $dedup, MessageSource::TelegramText, $msg['text'], $common);
             if ($created) {
                 ProcessInboundMessage::dispatch($message->id, $user->id);
+            }
+
+            return $created ? 'dispatched' : 'duplicate';
+        }
+
+        $sticker = $msg['sticker'] ?? null;
+        if (is_array($sticker) && isset($sticker['file_id'])) {
+            $emoji = isset($sticker['emoji']) && is_string($sticker['emoji']) ? mb_substr((string) preg_replace('/[\p{C}\s]+/u', '', $sticker['emoji']), 0, 16) : '';
+            [$message, $created] = $this->conversations->recordInbound($user, $dedup, MessageSource::TelegramSticker, $emoji !== '' ? "[sticker {$emoji}]" : '[sticker]', $common);
+            if ($created) {
+                $setName = isset($sticker['set_name']) && is_string($sticker['set_name']) && preg_match('/^[A-Za-z0-9_]{1,64}$/', $sticker['set_name']) ? $sticker['set_name'] : null;
+                if ($setName !== null && ($sticker['type'] ?? 'regular') !== 'custom_emoji' && $this->stickers->shouldOffer($user, $setName)) {
+                    OfferStickerSet::dispatch($message->id, $user->id, $setName);
+                } else {
+                    ProcessInboundMessage::dispatch($message->id, $user->id);
+                }
             }
 
             return $created ? 'dispatched' : 'duplicate';

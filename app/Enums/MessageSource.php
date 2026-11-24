@@ -12,4 +12,6 @@ enum MessageSource: string
     case Callback = 'callback';
     case Proactive = 'proactive';
     case AgentReply = 'agent_reply';
+    case TelegramSticker = 'telegram_sticker';
+    case AgentSticker = 'agent_sticker';
 }

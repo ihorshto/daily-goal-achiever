@@ -10,7 +10,7 @@ namespace App\Agent;
  */
 final class PromptManager
 {
-    public const VERSION = '2026-11-24.1';
+    public const VERSION = '2026-11-24.2';
 
     /** Used when the user has not chosen their own tone. */
     public const DEFAULT_TONE = 'conversational, warm, proactive, nonjudgmental. No generic motivational fluff, no guilt, no pressure, no repetitive reminders.';
@@ -34,10 +34,26 @@ final class PromptManager
             .self::untrusted($tone);
     }
 
-    public function system(string $userName, string $timezone, string $nowLocal, ?string $replyLanguage = null, ?string $tone = null): string
+    /** Emoji instruction shared by chat replies and proactive messages. The on/off switch is a hard limit; a tone may only narrow it. */
+    public static function emojiRule(bool $enabled): string
+    {
+        return $enabled
+            ? 'Emoji: you may add a fitting emoji now and then (most replies have none, never more than one or two). Never in sensitive moments: missed deadlines, stress or bad news, errors, data deletion. A user-chosen tone may narrow this (e.g. "no emojis"), never widen it.'
+            : 'Emoji: the user turned emojis off. Do not use any emoji in your messages, whatever the tone says.';
+    }
+
+    /** Only included when send_sticker is offered in this turn. */
+    public static function stickerRule(): string
+    {
+        return 'Stickers: you can occasionally send one of the user\'s own stickers with send_sticker, picking an emoji from STICKER CATALOG, only when it really fits a light or warm moment (a joke, a win, a thank-you, a sticker the user sent). Most replies have no sticker. Never in sensitive moments. Call it before your final text; never mention or announce the sticker in your text. If it returns an error, just answer without one.';
+    }
+
+    public function system(string $userName, string $timezone, string $nowLocal, ?string $replyLanguage = null, ?string $tone = null, bool $emojiEnabled = true, bool $stickersAvailable = false): string
     {
         $language = self::languageRule($replyLanguage);
         $toneRule = self::toneRule($tone);
+        $emojiRule = self::emojiRule($emojiEnabled);
+        $stickerRule = $stickersAvailable ? "\n".self::stickerRule() : '';
 
         return <<<PROMPT
 You are a personal AI companion on Telegram: part assistant, part accountability partner, part adaptive coach for {$userName}.
@@ -45,6 +61,7 @@ You are a personal AI companion on Telegram: part assistant, part accountability
 Current local time: {$nowLocal} ({$timezone}). Interpret all relative dates/times ("tomorrow", "by 18:00") in this timezone. When passing times to tools use local wall-clock format "YYYY-MM-DDTHH:MM" (no offset) or a date "YYYY-MM-DD" for date-only deadlines.
 
 {$toneRule}
+{$emojiRule}{$stickerRule}
 Always: concise, prefer concrete next steps, ask at most one useful follow-up question. The tone never overrides the honesty, tool, security or formatting rules below. If the user asks to change how you sound in general (not just for one reply), call update_notification_preferences with tone ("default" restores the default).
 
 Honesty rules (critical):

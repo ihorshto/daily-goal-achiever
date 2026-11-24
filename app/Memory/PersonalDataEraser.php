@@ -56,6 +56,9 @@ final class PersonalDataEraser
                 $counts['goals'] = DB::table('goals')->where('user_id', $user->id)->delete();
                 $counts['projects'] = DB::table('projects')->where('user_id', $user->id)->delete();
                 $counts['tool_executions'] = DB::table('tool_executions')->where('user_id', $user->id)->delete();
+                $counts['sticker_sends'] = DB::table('sticker_sends')->where('user_id', $user->id)->delete();
+                $counts['stickers'] = DB::table('stickers')->where('user_id', $user->id)->delete();
+                $counts['sticker_sets'] = DB::table('sticker_sets')->where('user_id', $user->id)->delete();
                 $counts['messages'] = DB::table('messages')->where('user_id', $user->id)->delete();
                 // Keep memory tombstones (hash only) so extraction never re-adds deleted facts.
             }

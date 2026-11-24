@@ -95,6 +95,8 @@ final class SettingsService
             'proactive_enabled' => $s->proactive_enabled,
             'reply_language' => ReplyLanguage::describe($s->reply_language),
             'tone' => ReplyTone::describe($s->tone),
+            'stickers' => $s->stickers_enabled ? 'on ('.$user->stickerSets()->active()->count().' sets)' : 'off',
+            'emoji' => $s->emoji_enabled ? 'on' : 'off',
             'paused_until' => $s->paused_until !== null && $s->paused_until->isFuture() ? LocalTime::human($s->paused_until, $user->timezone) : null,
         ];
     }

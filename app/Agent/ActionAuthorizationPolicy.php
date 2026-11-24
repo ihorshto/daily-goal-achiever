@@ -13,7 +13,7 @@ use App\Agent\Tools\Tool;
 final class ActionAuthorizationPolicy
 {
     /** Tools that require the current turn to be an explicit user message (evidence/consent). */
-    private const USER_TURN_ONLY = ['complete_task', 'confirm_pending_action', 'request_data_deletion', 'forget_memory', 'save_memory', 'create_calendar_event'];
+    private const USER_TURN_ONLY = ['complete_task', 'confirm_pending_action', 'request_data_deletion', 'forget_memory', 'save_memory', 'create_calendar_event', 'send_sticker'];
 
     /** Returns a denial reason, or null when allowed. */
     public function deny(Tool $tool, ToolContext $context): ?string

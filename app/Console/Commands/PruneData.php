@@ -22,6 +22,7 @@ class PruneData extends Command
             'agent_runs' => DB::table('agent_runs')->where('created_at', '<', now()->subDays($r['agent_runs_days']))->delete(),
             'notification_log' => DB::table('notification_log')->where('created_at', '<', now()->subDays($r['notification_log_days']))->delete(),
             'telegram_updates' => DB::table('telegram_updates')->where('created_at', '<', now()->subDays(30))->delete(),
+            'sticker_sends' => DB::table('sticker_sends')->where('created_at', '<', now()->subDays($r['sticker_sends_days']))->delete(),
             'messages' => DB::table('messages')->where('created_at', '<', now()->subDays($r['messages_days']))->delete(),
         ];
         $this->line(json_encode($out));

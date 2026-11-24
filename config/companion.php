@@ -108,5 +108,16 @@ return [
         'messages_days' => (int) env('RETENTION_MESSAGES_DAYS', 365),
         'agent_runs_days' => (int) env('RETENTION_AGENT_RUNS_DAYS', 90),
         'notification_log_days' => (int) env('RETENTION_NOTIFICATION_LOG_DAYS', 90),
+        'sticker_sends_days' => (int) env('RETENTION_STICKER_SENDS_DAYS', 90),
+    ],
+
+    // Sticker limits are fixed by operator config, never changeable from chat.
+    'stickers' => [
+        'min_gap_minutes' => (int) env('STICKERS_MIN_GAP_MINUTES', 30),
+        'min_replies_between' => (int) env('STICKERS_MIN_REPLIES_BETWEEN', 3),
+        'max_per_day' => (int) env('STICKERS_MAX_PER_DAY', 6),
+        'max_sets' => (int) env('STICKERS_MAX_SETS', 10),
+        'offer_cooldown_days' => (int) env('STICKERS_OFFER_COOLDOWN_DAYS', 30),
+        'catalog_max_emojis' => (int) env('STICKERS_CATALOG_MAX_EMOJIS', 60),
     ],
 ];
