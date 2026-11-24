@@ -1,0 +1,77 @@
+{
+  "task_slug": "agent-stickers",
+  "stack": "laravel",
+  "primary_profile": "laravel",
+  "active_profiles": {
+    "backend": "laravel",
+    "database": "laravel"
+  },
+  "profile_source": "laravel-plugin/stack.md",
+  "narrative_language": "uk",
+  "headless_mode": false,
+  "git_flow": {
+    "model": "github-flow",
+    "task_type": "feature",
+    "branch_name": "agent-stickers",
+    "base_branch": "main",
+    "pr_base_branch": "main",
+    "requires_back_merge": null,
+    "diff_scope": "prospective",
+    "gate_decision": "rename"
+  },
+  "active_workflow": "default",
+  "workflow_selection_reason": "task_type=feature",
+  "started_at": "2026-11-24T21:30:00Z",
+  "completed_at": "2026-11-24T22:04:33Z",
+  "wall_clock_seconds": 2073,
+  "resumed": false,
+  "resume_count": 0,
+  "model_enforcement_corrections": 0,
+  "phases": [],
+  "usage_source_summary": {
+    "measured": 0,
+    "estimated": 0,
+    "unmeasured": 0
+  },
+  "nested_cost_usd": 5.412091,
+  "total_cost_usd_including_nested": 5.412091,
+  "skip_rules_applied": [],
+  "post_pipeline_checks": [
+    {
+      "command": "./vendor/bin/pint --test",
+      "exit_code": 0
+    },
+    {
+      "command": "php artisan route:list",
+      "exit_code": 0
+    },
+    {
+      "command": "php artisan test",
+      "exit_code": 0
+    }
+  ],
+  "total_input_tokens": 0,
+  "total_output_tokens": 0,
+  "total_cached_input_tokens": 0,
+  "total_cost_usd": 0,
+  "cost_scope": "subagent_phases_only",
+  "max_total_cost_usd": null,
+  "cost_cap_overridden": false,
+  "cache_hit_ratio": 0,
+  "deps_preflight": {},
+  "aborted_at_phase": null,
+  "pr_url": null,
+  "commit": "f4a230c",
+  "pr_create_failed": "gh HTTP 401 Bad credentials",
+  "qa": {
+    "iterations_used": 2,
+    "status": "completed"
+  },
+  "security_fix_pass": {
+    "fixes_applied": 1
+  },
+  "qa_verify_rerun": {
+    "passed": 150,
+    "failed": 0
+  }
+}
