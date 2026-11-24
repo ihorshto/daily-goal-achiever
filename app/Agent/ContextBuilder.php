@@ -46,8 +46,9 @@ final class ContextBuilder
         $tz = $user->timezone;
         $budget = (int) config('companion.agent.context_token_budget');
         $nowLocal = $now->setTimezone($tz)->format('l Y-m-d H:i');
+        $settings = $user->settingsOrDefault();
 
-        $messages = [['role' => 'system', 'content' => $this->prompts->system($user->displayName(), $tz, $nowLocal, $user->settingsOrDefault()->reply_language)]];
+        $messages = [['role' => 'system', 'content' => $this->prompts->system($user->displayName(), $tz, $nowLocal, $settings->reply_language, $settings->tone)]];
 
         // Task titles are user-originated text: fit first, then mark the whole block as data.
         $structured = PromptManager::untrusted($this->tokens->fit($this->structured($user, $now), (int) ($budget * 0.4)));

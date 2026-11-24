@@ -86,7 +86,7 @@ final class ProactivePlanner
             $response = $this->llm->chat(new ChatRequest(
                 model: $model,
                 messages: [
-                    ['role' => 'system', 'content' => $this->prompts->proactive()."\n".PromptManager::languageRule($user->settingsOrDefault()->reply_language)],
+                    ['role' => 'system', 'content' => $this->prompts->proactive()."\n".PromptManager::languageRule($user->settingsOrDefault()->reply_language)."\n".PromptManager::toneRule($user->settingsOrDefault()->tone)],
                     ['role' => 'user', 'content' => "User name: {$user->displayName()}\nLocal time: ".LocalTime::human($now, $tz)
                         ."\n\nCHECKPOINT FACTS (current database state):\n".PromptManager::untrusted((string) json_encode($facts, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT))
                         ."\n\nRECENT CONVERSATION:\n".PromptManager::untrusted((string) json_encode($recent, JSON_UNESCAPED_UNICODE))],

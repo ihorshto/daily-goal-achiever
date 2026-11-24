@@ -8,6 +8,7 @@ use App\Enums\Actor;
 use App\Models\User;
 use App\Support\LocalTime;
 use App\Support\ReplyLanguage;
+use App\Support\ReplyTone;
 use Carbon\CarbonImmutable;
 
 /** Validates and applies notification preferences; keeps scheduled rituals in sync. */
@@ -39,6 +40,16 @@ final class SettingsService
         if (array_key_exists('reply_language', $changes)) {
             // "auto" (→ null) survives the null filter above because it arrives as a string.
             $changes['reply_language'] = ReplyLanguage::normalize((string) $changes['reply_language']);
+        }
+
+        if (array_key_exists('tone', $changes)) {
+            if (trim((string) $changes['tone']) === '') {
+                // An empty string means "not changed", so a stray "" never wipes a chosen tone; reset needs "default".
+                unset($changes['tone']);
+            } else {
+                // "default" (→ null) survives the null filter above because it arrives as a string.
+                $changes['tone'] = ReplyTone::normalize((string) $changes['tone']);
+            }
         }
 
         $pauseHours = $changes['pause_hours'] ?? null;
@@ -83,6 +94,7 @@ final class SettingsService
             'min_gap_minutes' => $s->min_gap_minutes,
             'proactive_enabled' => $s->proactive_enabled,
             'reply_language' => ReplyLanguage::describe($s->reply_language),
+            'tone' => ReplyTone::describe($s->tone),
             'paused_until' => $s->paused_until !== null && $s->paused_until->isFuture() ? LocalTime::human($s->paused_until, $user->timezone) : null,
         ];
     }
