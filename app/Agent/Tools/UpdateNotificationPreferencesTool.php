@@ -20,7 +20,7 @@ final class UpdateNotificationPreferencesTool extends BaseTool
 
     public function description(): string
     {
-        return 'Change when/how the companion contacts the user, and the reply language. "Always answer in Ukrainian" → reply_language "Ukrainian"; "answer in whatever language I write" → reply_language "auto". Times are local HH:MM 24h. "Don\'t disturb me after 21:00" → quiet_start 21:00. "Message me at 08:30" → morning_time 08:30. pause_hours pauses proactive messages (0 resumes). Only pass fields the user changed.';
+        return 'Change when/how the companion contacts the user, the reply language, the tone, and whether stickers and emojis are used. "Always answer in Ukrainian" → reply_language "Ukrainian"; "answer in whatever language I write" → reply_language "auto". Times are local HH:MM 24h. "Don\'t disturb me after 21:00" → quiet_start 21:00. "Message me at 08:30" → morning_time 08:30. pause_hours pauses proactive messages (0 resumes). "Talk to me more directly, less sugar-coating" → tone "direct, plain, no sugar-coating"; "go back to your normal tone" → tone "default". "Stop sending stickers" → stickers_enabled false; "no emojis please" → emoji_enabled false. Only pass fields the user changed.';
     }
 
     public function parameters(): array
@@ -38,6 +38,9 @@ final class UpdateNotificationPreferencesTool extends BaseTool
             'proactive_enabled' => $this->boolean('All proactive messages on/off', true),
             'pause_hours' => $this->integer('Pause proactive messages for N hours (0 = resume)', true),
             'reply_language' => $this->string('Language for all replies as an English name ("Ukrainian", "English"), or "auto" to mirror the user\'s language', true),
+            'stickers_enabled' => $this->boolean('Allow the companion to send the user\'s stickers on/off', true),
+            'emoji_enabled' => $this->boolean('Allow emojis in the companion\'s messages on/off', true),
+            'tone' => $this->string('Short description of how the companion should sound in general (max 300 chars), in the user\'s words, or "default" for the built-in tone', true),
         ]);
     }
 
@@ -56,6 +59,9 @@ final class UpdateNotificationPreferencesTool extends BaseTool
             'proactive_enabled' => ['nullable', 'boolean'],
             'pause_hours' => ['nullable', 'integer', 'min:0', 'max:720'],
             'reply_language' => ['nullable', 'string', 'max:40'],
+            'stickers_enabled' => ['nullable', 'boolean'],
+            'emoji_enabled' => ['nullable', 'boolean'],
+            'tone' => ['nullable', 'string', 'max:300'],
         ];
     }
 

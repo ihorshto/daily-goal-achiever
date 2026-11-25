@@ -39,6 +39,18 @@ class TelegramApiClient
         return $this->upload('sendDocument', $fields, 'document', $filename, $contents, $mimeType);
     }
 
+    /** Send an existing sticker by its file_id. */
+    public function sendSticker(int $chatId, string $fileId): TelegramResult
+    {
+        return $this->call('sendSticker', ['chat_id' => $chatId, 'sticker' => $fileId]);
+    }
+
+    /** Fetch a sticker set (name = the part of t.me/addstickers/{name}). */
+    public function getStickerSet(string $name): TelegramResult
+    {
+        return $this->call('getStickerSet', ['name' => $name]);
+    }
+
     public function answerCallbackQuery(string $callbackQueryId, ?string $text = null): TelegramResult
     {
         return $this->call('answerCallbackQuery', array_filter(['callback_query_id' => $callbackQueryId, 'text' => $text !== null ? mb_substr($text, 0, 190) : null]));

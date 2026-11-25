@@ -43,6 +43,7 @@ class AppServiceProvider extends ServiceProvider
         Tools\ProposeTaskCancellationTool::class,
         Tools\ConfirmPendingActionTool::class,
         Tools\RequestDataDeletionTool::class,
+        Tools\SendStickerTool::class,
     ];
 
     public function register(): void

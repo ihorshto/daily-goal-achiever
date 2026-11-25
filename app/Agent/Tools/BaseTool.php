@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Agent\Tools;
 
+use App\Agent\ToolContext;
 use App\Support\LocalTime;
 use Carbon\CarbonImmutable;
 use InvalidArgumentException;
@@ -11,6 +12,11 @@ use InvalidArgumentException;
 abstract class BaseTool implements Tool
 {
     public function mutates(): bool
+    {
+        return true;
+    }
+
+    public function availableFor(ToolContext $context): bool
     {
         return true;
     }

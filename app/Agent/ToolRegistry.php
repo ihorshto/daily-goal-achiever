@@ -33,6 +33,18 @@ final class ToolRegistry
     /** OpenAI function tool definitions (strict mode). @return list<array<string, mixed>> */
     public function definitions(): array
     {
+        return $this->definitionsOf($this->tools);
+    }
+
+    /** Definitions of the tools offered to the model in this turn. @return list<array<string, mixed>> */
+    public function definitionsFor(ToolContext $context): array
+    {
+        return $this->definitionsOf(array_filter($this->tools, fn (Tool $t) => $t->availableFor($context)));
+    }
+
+    /** @param array<string, Tool> $tools @return list<array<string, mixed>> */
+    private function definitionsOf(array $tools): array
+    {
         return array_values(array_map(fn (Tool $t) => [
             'type' => 'function',
             'function' => [
@@ -41,6 +53,6 @@ final class ToolRegistry
                 'parameters' => $t->parameters(),
                 'strict' => true,
             ],
-        ], $this->tools));
+        ], $tools));
     }
 }

@@ -19,7 +19,7 @@ final class GetTodayTasksTool extends BaseTool
 
     public function description(): string
     {
-        return 'Tasks planned for, due on, or overdue as of a local date (default today). Use date for "tomorrow" etc. Also returns other open tasks without a date.';
+        return 'Tasks planned for or due on a local date (default today). Use date for "tomorrow" etc. Separately returns open tasks overdue from EARLIER days (not part of that day\'s plan) and other open tasks without a date.';
     }
 
     public function mutates(): bool
@@ -41,12 +41,14 @@ final class GetTodayTasksTool extends BaseTool
     {
         $date = $this->localDate($args['date'], $context->user->timezone);
         $forDate = $this->tasks->forLocalDate($context->user, $date);
+        $overdue = $this->tasks->overdueAsOf($context->user, $date);
         $undated = $context->user->tasks()->open()->whereNull('due_at')->whereNull('due_date')->whereNull('planned_for_date')
             ->whereNotIn('id', $forDate->pluck('id'))->latest('updated_at')->limit(10)->get();
 
         return ToolResult::ok([
             'date' => $date,
-            'tasks' => $forDate->map(fn ($t) => $this->tasks->describe($t))->all(),
+            'tasks' => $forDate->map(fn ($t) => $this->tasks->describe($t))->values()->all(),
+            'overdue_from_earlier_days' => $overdue->map(fn ($t) => $this->tasks->describe($t))->values()->all(),
             'other_open_undated' => $undated->map(fn ($t) => $this->tasks->describe($t))->all(),
         ]);
     }

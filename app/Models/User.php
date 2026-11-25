@@ -59,6 +59,8 @@ class User extends Authenticatable
             'quiet_end' => $defaults['quiet_end'],
             'max_checkins_per_day' => $defaults['max_checkins_per_day'],
             'min_gap_minutes' => $defaults['min_gap_minutes'],
+            'stickers_enabled' => true,
+            'emoji_enabled' => true,
         ]);
     }
 
@@ -110,6 +112,21 @@ class User extends Authenticatable
     public function pendingActions(): HasMany
     {
         return $this->hasMany(PendingActionConfirmation::class);
+    }
+
+    public function stickerSets(): HasMany
+    {
+        return $this->hasMany(StickerSet::class);
+    }
+
+    public function stickers(): HasMany
+    {
+        return $this->hasMany(Sticker::class);
+    }
+
+    public function stickerSends(): HasMany
+    {
+        return $this->hasMany(StickerSend::class);
     }
 
     public function displayName(): string

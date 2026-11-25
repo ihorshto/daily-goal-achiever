@@ -74,6 +74,28 @@ class OutboundMessenger
         return new DeliveryOutcome('sent', $result->messageId());
     }
 
+    /** Same exactly-once guarantees as deliver(), for a single sticker sent by file_id. */
+    public function deliverSticker(User $user, string $fileId, string $kind, string $idempotencyKey): DeliveryOutcome
+    {
+        if ($user->telegram_chat_id === null) {
+            return new DeliveryOutcome('failed', null, null, 'no_chat');
+        }
+        $log = $this->claim($user, $kind, $idempotencyKey, null);
+        if ($log === null) {
+            return new DeliveryOutcome('duplicate', null);
+        }
+
+        $result = $this->telegram->sendSticker((int) $user->telegram_chat_id, $fileId);
+        if (! $result->ok) {
+            return $this->failed($log, $result, $kind, 0);
+        }
+
+        $log->update(['status' => NotificationStatus::Sent, 'telegram_message_id' => $result->messageId(), 'sent_at' => now(), 'error_code' => null]);
+        Log::info('telegram.delivered', ['kind' => $kind, 'parts' => 1]);
+
+        return new DeliveryOutcome('sent', $result->messageId());
+    }
+
     private function failed(NotificationLog $log, TelegramResult $result, string $kind, int $part): DeliveryOutcome
     {
         $retryable = ! $result->isPermanent() || $result->isRateLimited();

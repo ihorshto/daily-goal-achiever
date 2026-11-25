@@ -14,6 +14,9 @@ class FakeTelegramApiClient extends TelegramApiClient
     /** @var array<string, list<TelegramResult>> */
     public array $failures = [];
 
+    /** @var array<string, array<string, mixed>> sticker set name => Bot API StickerSet object */
+    public array $stickerSets = [];
+
     public int $nextMessageId = 1000;
 
     public string $downloadBytes = "OggS\x00\x02fake-opus-audio";
@@ -35,7 +38,10 @@ class FakeTelegramApiClient extends TelegramApiClient
         }
 
         return match ($method) {
-            'sendMessage' => new TelegramResult(true, ['message_id' => $this->nextMessageId++], 0, null),
+            'sendMessage', 'sendSticker' => new TelegramResult(true, ['message_id' => $this->nextMessageId++], 0, null),
+            'getStickerSet' => isset($this->stickerSets[$payload['name']])
+                ? new TelegramResult(true, $this->stickerSets[$payload['name']], 0, null)
+                : new TelegramResult(false, null, 400, 'Bad Request: STICKERSET_INVALID'),
             'getFile' => new TelegramResult(true, ['file_id' => $payload['file_id'], 'file_path' => 'voice/file_1.oga', 'file_size' => strlen($this->downloadBytes)], 0, null),
             default => new TelegramResult(true, true, 0, null),
         };
@@ -55,6 +61,12 @@ class FakeTelegramApiClient extends TelegramApiClient
     public function documents(): array
     {
         return array_values(array_map(fn ($c) => $c['payload'], array_filter($this->calls, fn ($c) => $c['method'] === 'sendDocument')));
+    }
+
+    /** @return list<array> */
+    public function stickers(): array
+    {
+        return array_values(array_map(fn ($c) => $c['payload'], array_filter($this->calls, fn ($c) => $c['method'] === 'sendSticker')));
     }
 
     public function downloadFile(string $filePath, string $destination, int $maxBytes): int

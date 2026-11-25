@@ -45,8 +45,9 @@ final class AgentOrchestrator
 
         $run = $this->usage->start($user, $trigger, $inbound->id, $model);
         $ctx = new ToolContext($user, $inbound, $run, $trigger, CarbonImmutable::now());
-        $messages = $this->context->build($user, $inbound);
-        $tools = $this->registry->definitions();
+        $tools = $this->registry->definitionsFor($ctx);
+        $stickersAvailable = in_array('send_sticker', array_column(array_column($tools, 'function'), 'name'), true);
+        $messages = $this->context->build($user, $inbound, null, $stickersAvailable);
 
         $maxIterations = (int) config('companion.agent.max_tool_iterations');
         $maxCalls = (int) config('companion.agent.max_tool_calls_per_run');

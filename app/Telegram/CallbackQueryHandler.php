@@ -15,11 +15,14 @@ use App\Enums\CheckpointState;
 use App\Enums\MessageSource;
 use App\Enums\PendingActionType;
 use App\Enums\ProcessingState;
+use App\Enums\StickerSetStatus;
 use App\Enums\TaskStatus;
 use App\Jobs\SendTelegramMessage;
 use App\Models\Message;
 use App\Models\Task;
 use App\Models\User;
+use App\Stickers\StickerCatalog;
+use App\Stickers\StickerSetUnavailable;
 use App\Support\LocalTime;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Log;
@@ -38,6 +41,7 @@ final class CallbackQueryHandler
         private readonly PendingActionService $pending,
         private readonly CheckpointService $checkpoints,
         private readonly ConversationService $conversations,
+        private readonly StickerCatalog $stickers,
     ) {}
 
     /** @param array{id: string, data: string, chat_id: int, message_id: int|null, message_date: int|null, update_id: int} $cb */
@@ -52,6 +56,7 @@ final class CallbackQueryHandler
                 (bool) preg_match('/^t:(\d{1,12}):([dpbz])$/', $data, $m) => $isStale ? ['This button has expired.', null] : $this->task($user, (int) $m[1], $m[2], $cb),
                 (bool) preg_match('/^c:([A-Za-z0-9]{20}):([yn])$/', $data, $m) => $this->confirm($user, $m[1], $m[2] === 'y', $cb),
                 (bool) preg_match('/^s:(\d{1,12}):(60|1440)$/', $data, $m) => $isStale ? ['This button has expired.', null] : $this->snooze($user, (int) $m[1], (int) $m[2], $cb),
+                (bool) preg_match('/^k:(\d{1,12}):([an])$/', $data, $m) => $isStale ? ['This button has expired.', null] : $this->stickerOffer($user, (int) $m[1], $m[2] === 'a', $cb),
                 default => ['Unknown action.', null],
             };
         } catch (DomainException $e) {
@@ -159,6 +164,35 @@ final class CallbackQueryHandler
         $this->checkpoints->schedulePromised($user, $at, 'Snoozed: '.($cp->reason ?? 'follow-up'), $cp->task, $evidence->id, "snooze:{$cp->id}:{$minutes}");
 
         return [$minutes === 60 ? 'Okay, in an hour.' : 'Okay, tomorrow.', null];
+    }
+
+    /** @return array{0: string, 1: string|null} */
+    private function stickerOffer(User $user, int $setId, bool $add, array $cb): array
+    {
+        $set = $user->stickerSets()->whereKey($setId)->first();
+        if ($set === null) {
+            return ['That sticker set is not available.', null];
+        }
+        $this->recordPress($user, $cb, ($add ? 'Add' : 'Not now').' (sticker set offer above)');
+        if ($cb['message_id'] !== null) {
+            $this->telegram->removeKeyboard($cb['chat_id'], $cb['message_id']);
+        }
+        if (! $add) {
+            $this->stickers->dismiss($set);
+
+            return ['Okay, not now.', null];
+        }
+        if ($set->status === StickerSetStatus::Active) {
+            return ['Already added.', null];
+        }
+
+        try {
+            $import = $this->stickers->import($user, $set->name);
+        } catch (StickerSetUnavailable $e) {
+            return [mb_substr($e->getMessage(), 0, 180), null];
+        }
+
+        return ['Added ✅', $import->message($user->settingsOrDefault()->stickers_enabled)];
     }
 
     private function recordPress(User $user, array $cb, string $label): Message

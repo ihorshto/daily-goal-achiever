@@ -18,6 +18,8 @@ class UserSetting extends Model
     {
         return [
             'proactive_enabled' => 'boolean',
+            'stickers_enabled' => 'boolean',
+            'emoji_enabled' => 'boolean',
             'morning_enabled' => 'boolean',
             'evening_enabled' => 'boolean',
             'paused_until' => 'immutable_datetime',

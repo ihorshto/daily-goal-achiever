@@ -20,6 +20,7 @@ final class DailyPlanningService
         $yesterday = CarbonImmutable::parse($localDate)->subDay()->toDateString();
         $y = $this->summaries->compute($user, $yesterday);
         $today = $this->tasks->forLocalDate($user, $localDate)->filter->isOpen();
+        $overdue = $this->tasks->overdueAsOf($user, $localDate);
 
         return [
             'ritual' => 'morning_planning',
@@ -28,6 +29,7 @@ final class DailyPlanningService
             'yesterday_still_blocked' => array_column(array_filter($y['blockers'], fn ($b) => $b['still_blocked']), 'title'),
             'today' => $today->map(fn ($t) => $this->tasks->describe($t))->values()->all(),
             'committed_today' => $today->filter(fn ($t) => $t->commitment->isCommitted())->pluck('title')->values()->all(),
+            'overdue_from_earlier_days' => $overdue->map(fn ($t) => $this->tasks->describe($t))->values()->all(),
         ];
     }
 
@@ -40,6 +42,9 @@ final class DailyPlanningService
         }
         if ($facts['today'] !== []) {
             $lines[] = "On today's list:\n".implode("\n", array_map(fn ($t) => '- '.$t['title'].(isset($t['due']) ? " (due {$t['due']})" : ''), array_slice($facts['today'], 0, 6)));
+        }
+        if ($facts['overdue_from_earlier_days'] !== []) {
+            $lines[] = "Still open from earlier days:\n".implode("\n", array_map(fn ($t) => '- '.$t['title'].(isset($t['due']) ? " (was due {$t['due']})" : ''), array_slice($facts['overdue_from_earlier_days'], 0, 4)));
         }
         $lines[] = "What's your top priority today?";
 

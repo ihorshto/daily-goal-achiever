@@ -27,6 +27,9 @@ interface Tool
     /** Mutating tools are blocked outside user-initiated turns. */
     public function mutates(): bool;
 
+    /** Whether the model is offered this tool in the given turn. Hidden tools cannot be called. */
+    public function availableFor(ToolContext $context): bool;
+
     /** @param array<string, mixed> $args */
     public function handle(ToolContext $context, array $args): ToolResult;
 }
